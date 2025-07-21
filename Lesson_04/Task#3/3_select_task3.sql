@@ -1,5 +1,3 @@
--- ЗАДАНИЕ 3: SELECT-ЗАПРОСЫ
-
 SELECT g.name, COUNT(ag.artist) AS artist_count FROM Genre g
 JOIN ArtistGenre ag ON g.id = ag.genre GROUP BY g.name;
 

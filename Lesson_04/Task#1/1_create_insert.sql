@@ -1,5 +1,3 @@
--- ЗАДАНИЕ 1: СОЗДАНИЕ И ЗАПОЛНЕНИЕ ТАБЛИЦ
-
 CREATE TABLE Genre (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL
