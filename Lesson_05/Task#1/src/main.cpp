@@ -1,5 +1,7 @@
 #include <iostream>
 #include <pqxx/pqxx>
+#include <vector>
+#include <tuple>
 
 class ClientManager {
 public:
@@ -14,44 +16,50 @@ public:
 
     void addClient(std::string first, std::string last, std::string email) {
         pqxx::work txn(connection);
-        txn.exec("INSERT INTO Client (first_name, last_name, email) VALUES ('" + first + "', '" + last + "', '" + email + "')");
+        txn.exec("INSERT INTO Client (first_name, last_name, email) VALUES ('" + txn.esc(first) + "', '" + txn.esc(last) + "', '" + txn.esc(email) + "')");
         txn.commit();
     }
 
     void addPhone(int clientId, std::string phone) {
         pqxx::work txn(connection);
-        txn.exec("INSERT INTO Phone (client_id, phone_number) VALUES (" + std::to_string(clientId) + ", '" + phone + "')");
+        txn.exec("INSERT INTO Phone (client_id, phone_number) VALUES (" + txn.esc(std::to_string(clientId)) + ", '" + txn.esc(phone) + "')");
         txn.commit();
     }
 
     void updateClient(int clientId, std::string first, std::string last, std::string email) {
         pqxx::work txn(connection);
-        txn.exec("UPDATE Client SET first_name = '" + first + "', last_name = '" + last + "', email = '" + email + "' WHERE id = " + std::to_string(clientId));
+        txn.exec("UPDATE Client SET first_name = '" + txn.esc(first) + "', last_name = '" + txn.esc(last) + "', email = '" + txn.esc(email) + "' WHERE id = " + txn.esc(std::to_string(clientId)));
         txn.commit();
     }
 
     void deletePhone(int phoneId) {
         pqxx::work txn(connection);
-        txn.exec("DELETE FROM Phone WHERE id = " + std::to_string(phoneId));
+        txn.exec("DELETE FROM Phone WHERE id = " + txn.esc(std::to_string(phoneId)));
         txn.commit();
     }
 
     void deleteClient(int clientId) {
         pqxx::work txn(connection);
-        txn.exec("DELETE FROM Client WHERE id = " + std::to_string(clientId));
+        txn.exec("DELETE FROM Client WHERE id = " + txn.esc(std::to_string(clientId)));
         txn.commit();
     }
 
-    void findClient(std::string keyword) {
+    std::vector<std::tuple<int, std::string, std::string, std::string, std::string>> findClient(std::string keyword) {
         pqxx::work txn(connection);
-        std::string query = "SELECT c.id, c.first_name, c.last_name, c.email, p.phone_number FROM Client c LEFT JOIN Phone p ON c.id = p.client_id WHERE c.first_name ILIKE '%" + keyword + "%' OR c.last_name ILIKE '%" + keyword + "%' OR c.email ILIKE '%" + keyword + "%' OR p.phone_number ILIKE '%" + keyword + "%'";
+        std::string query = "SELECT c.id, c.first_name, c.last_name, c.email, p.phone_number FROM Client c LEFT JOIN Phone p ON c.id = p.client_id WHERE c.first_name ILIKE '%" + txn.esc(keyword) + "%' OR c.last_name ILIKE '%" + txn.esc(keyword) + "%' OR c.email ILIKE '%" + txn.esc(keyword) + "%' OR p.phone_number ILIKE '%" + txn.esc(keyword) + "%'";
         pqxx::result r = txn.query(query);
 
+        std::vector<std::tuple<int, std::string, std::string, std::string, std::string>> results;
         for (auto row : r) {
-            std::cout << "Client ID: " << row["id"].as<int>() << ", Name: " << row["first_name"].c_str() << " " << row["last_name"].c_str() << ", Email: " << row["email"].c_str() << ", Phone: ";
-            if (row["phone_number"].is_null()) std::cout << "N/A" << std::endl;
-            else std::cout << row["phone_number"].c_str() << std::endl;
+            results.push_back({
+                row["id"].as<int>(),
+                row["first_name"].c_str(),
+                row["last_name"].c_str(),
+                row["email"].c_str(),
+                row["phone_number"].is_null() ? "" : row["phone_number"].c_str()
+            });
         }
+        return results;
     }
 
 private:
@@ -74,7 +82,14 @@ int main() {
         cm.addClient("Ivan", "Ivanov", "ivan@example.com");
         cm.addPhone(1, "+79161234567");
         cm.updateClient(1, "Ivan", "Petrov", "ivanpetrov@example.com");
-        cm.findClient("Ivan");
+
+        auto clients = cm.findClient("Ivan");
+        for (auto& c : clients) {
+            std::cout << "Client ID: " << std::get<0>(c) << ", "
+                      << std::get<1>(c) << " " << std::get<2>(c) << ", "
+                      << std::get<3>(c) << ", Phone: " << std::get<4>(c) << std::endl;
+        }
+
         cm.deletePhone(1);
         cm.deleteClient(1);
 
